@@ -1,45 +1,85 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>NBA Live Stream</title>
+  <title>NBA Live Premium</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <style>
     body {
       margin: 0;
-      font-family: Arial;
-      background: #0b0b0b;
-      color: white;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(180deg, #0b0b0b, #000);
+      color: #fff;
     }
 
     .header {
-      padding: 15px;
-      background: #111;
+      padding: 14px 16px;
+      background: rgba(0,0,0,0.9);
       display: flex;
       justify-content: space-between;
       align-items: center;
       border-bottom: 1px solid #222;
+      position: sticky;
+      top: 0;
+      z-index: 5;
     }
 
-    .title {
-      font-size: 18px;
+    .logo {
       font-weight: bold;
+      color: #ff3c3c;
+      letter-spacing: .5px;
     }
 
     .live {
-      color: red;
+      color: #ff3c3c;
       font-weight: bold;
     }
 
     .container {
-      padding: 10px;
+      padding: 14px;
+      max-width: 980px;
+      margin: auto;
+    }
+
+    .player-box {
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 0 25px rgba(0,0,0,0.7);
+      background: #000;
     }
 
     iframe {
       width: 100%;
-      height: 60vh;
+      height: 62vh;
       border: none;
-      border-radius: 10px;
+      display: none;
+      background: #000;
+    }
+
+    /* Overlay */
+    #overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.88);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      text-align: center;
+      padding: 20px;
+    }
+
+    #overlay h1 {
+      margin: 0 0 8px 0;
+      font-size: 22px;
+    }
+
+    #overlay p {
+      margin: 0;
+      color: #aaa;
+      font-size: 13px;
     }
 
     .info {
@@ -47,17 +87,20 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     .viewers {
       color: #aaa;
+      font-size: 14px;
     }
 
     .btn {
-      padding: 8px 12px;
-      background: #222;
+      padding: 7px 12px;
+      background: #1a1a1a;
       border: none;
-      color: white;
+      color: #fff;
       border-radius: 6px;
       cursor: pointer;
     }
@@ -67,19 +110,26 @@
     }
 
     .games {
-      margin-top: 20px;
+      margin-top: 16px;
     }
 
     .game {
-      padding: 10px;
+      padding: 11px;
       background: #111;
       margin-bottom: 8px;
-      border-radius: 6px;
+      border-radius: 8px;
       cursor: pointer;
+      transition: .2s;
+      font-size: 14px;
     }
 
     .game:hover {
       background: #222;
+      transform: scale(1.02);
+    }
+
+    .active {
+      border: 1px solid #ff3c3c;
     }
   </style>
 </head>
@@ -87,65 +137,90 @@
 <body>
 
 <div class="header">
-  <div class="title">NBA Live Stream</div>
+  <div class="logo">NBA PREMIUM</div>
   <div class="live">● LIVE</div>
 </div>
 
 <div class="container">
 
-  <!-- VIDEO -->
-  <iframe id="player"
-    src="https://streamfree.app/embed/basketball/oklahoma-city-thunder-vs-phoenix-suns"
-    allowfullscreen>
-  </iframe>
+  <div class="player-box">
 
-  <!-- INFO -->
-  <div class="info">
-    <div class="viewers">
-      👁 <span id="viewCount">0</span> watching
+    <!-- Overlay (anti-redirect first click) -->
+    <div id="overlay" onclick="startStream()">
+      <h1>▶ Tap to Watch</h1>
+      <p>Click once to start (may open 1 tab depende sa source)</p>
     </div>
 
-    <button class="btn" onclick="reloadPlayer()">Reload</button>
+    <!-- Player -->
+    <iframe id="player"
+      sandbox="allow-scripts allow-presentation"
+      allowfullscreen>
+    </iframe>
+
   </div>
 
-  <!-- GAMES -->
+  <div class="info">
+    <div class="viewers">👁 <span id="viewCount">0</span> watching</div>
+    <div>
+      <button class="btn" onclick="reloadPlayer()">Reload</button>
+    </div>
+  </div>
+
+  <!-- Game list -->
   <div class="games">
-    <div class="game" onclick="playGame('detroit-pistons-vs-orlando-magic')">
+    <div class="game active" onclick="setGame(this,'oklahoma-city-thunder-vs-phoenix-suns')">
+      Thunder vs Suns
+    </div>
+
+    <div class="game" onclick="setGame(this,'detroit-pistons-vs-orlando-magic')">
       Pistons vs Magic
     </div>
 
-    <div class="game" onclick="playGame('lakers-vs-warriors')">
+    <div class="game" onclick="setGame(this,'lakers-vs-warriors')">
       Lakers vs Warriors
-    </div>
-
-    <div class="game" onclick="playGame('celtics-vs-bucks')">
-      Celtics vs Bucks
     </div>
   </div>
 
 </div>
 
 <script>
-  // fake viewers counter
-  function updateViewers() {
-    const count = Math.floor(Math.random() * 5000) + 1000;
-    document.getElementById("viewCount").innerText = count;
-  }
+let currentGame = "oklahoma-city-thunder-vs-phoenix-suns";
 
-  setInterval(updateViewers, 3000);
-  updateViewers();
+function startStream() {
+  document.getElementById("overlay").style.display = "none";
 
-  // switch game
-  function playGame(game) {
-    document.getElementById("player").src =
-      "https://streamfree.app/embed/basketball/" + game;
-  }
+  const iframe = document.getElementById("player");
+  iframe.style.display = "block";
+  iframe.src = "https://streamfree.app/embed/basketball/minnesota-timberwolves-vs-denver-nuggets" + currentGame;
+}
 
-  // reload
-  function reloadPlayer() {
-    let player = document.getElementById("player");
-    player.src = player.src;
-  }
+function setGame(el, game) {
+  currentGame = game;
+
+  // highlight active
+  document.querySelectorAll(".game").forEach(g => g.classList.remove("active"));
+  el.classList.add("active");
+
+  // reset overlay (important para bawas redirect)
+  document.getElementById("overlay").style.display = "flex";
+
+  const iframe = document.getElementById("player");
+  iframe.style.display = "none";
+  iframe.src = "";
+}
+
+function reloadPlayer() {
+  const iframe = document.getElementById("player");
+  iframe.src = iframe.src;
+}
+
+// fake viewers
+function updateViewers() {
+  document.getElementById("viewCount").innerText =
+    Math.floor(Math.random() * 4000) + 1000;
+}
+setInterval(updateViewers, 3000);
+updateViewers();
 </script>
 
 </body>
