@@ -3,31 +3,35 @@ import fetch from "node-fetch";
 
 const app = express();
 
-// health check
-app.get("/", (req, res) => res.send("OK"));
+let viewers = 0;
+
+// endpoint para sa player
+app.get("/watch", (req, res) => {
+  viewers++;
+  res.sendFile(new URL("./index.html", import.meta.url).pathname);
+});
+
+// endpoint para sa count
+app.get("/viewers", (req, res) => {
+  res.json({ viewers });
+});
 
 // proxy ng m3u8
 app.get("/stream", async (req, res) => {
-  try {
-    const url = "M3U8_LINK"; // <-- palitan mo dito
+  const url = "PASTE_M3U8_LINK";
 
-    const response = await fetch(url, {
-      headers: {
-        // gamitin yung embed referer (gaya sa DevTools mo)
-        "Referer": "https://streamfree.app/embed/basketball/",
-        "Origin": "https://streamfree.app",
-        "User-Agent": "Mozilla/5.0",
-        "Accept": "*/*"
-      }
-    });
+  const response = await fetch(url, {
+    headers: {
+      "Referer": "https://streamfree.app/embed/basketball/",
+      "Origin": "https://streamfree.app",
+      "User-Agent": "Mozilla/5.0"
+    }
+  });
 
-    const text = await response.text();
+  const data = await response.text();
 
-    res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
-    res.send(text);
-  } catch (e) {
-    res.status(500).send("Error fetching stream");
-  }
+  res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
+  res.send(data);
 });
 
-app.listen(3000, () => console.log("Running on 3000"));
+app.listen(3000);
