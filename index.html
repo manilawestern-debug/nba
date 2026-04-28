@@ -1,53 +1,52 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>NBA Auto Stream</title>
+  <title>NBA Live Premium</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <style>
-    body {
-      margin: 0;
-      background: #000;
-      font-family: Arial;
-      color: white;
-    }
+    body { margin:0; background:#0b0b0b; font-family:Arial; color:#fff; }
 
     .header {
-      padding: 12px;
-      background: #111;
-      display: flex;
-      justify-content: space-between;
+      padding:14px;
+      background:#111;
+      display:flex;
+      justify-content:space-between;
     }
 
-    .live {
-      color: red;
-      font-weight: bold;
-    }
+    .live { color:red; font-weight:bold; }
 
     iframe {
-      width: 100%;
-      height: 60vh;
-      border: none;
-      background: black;
+      width:100%;
+      height:45vh;
+      border:none;
     }
 
-    .info {
-      padding: 10px;
-      text-align: center;
-      color: #aaa;
+    .games { padding:10px; }
+
+    .card {
+      background:#111;
+      padding:12px;
+      border-radius:10px;
+      margin-bottom:10px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      cursor:pointer;
+      border:1px solid transparent;
     }
 
-    .btn {
-      padding: 8px 12px;
-      background: #222;
-      border: none;
-      color: white;
-      border-radius: 6px;
-      cursor: pointer;
-    }
+    .card.active { border-color:red; }
 
-    .btn:hover {
-      background: #333;
+    .team { display:flex; align-items:center; gap:8px; }
+
+    .logo { width:26px; height:26px; }
+
+    .badge {
+      background:red;
+      padding:4px 8px;
+      border-radius:6px;
+      font-size:11px;
     }
   </style>
 </head>
@@ -55,42 +54,99 @@
 <body>
 
 <div class="header">
-  <div>NBA AUTO STREAM</div>
+  <div>NBA PREMIUM</div>
   <div class="live">● LIVE</div>
 </div>
 
-<!-- AUTO LOAD PLAYER -->
-<iframe id="player"
-  src="https://streamfree.app/embed/basketball/minnesota-timberwolves-vs-denver-nuggets"
-  allow="autoplay; fullscreen"
-  allowfullscreen>
-</iframe>
+<iframe id="player"></iframe>
 
-<div class="info">
-  ⚠️ If not playing, wait or reload
-  <br><br>
-  <button class="btn" onclick="reloadPlayer()">Reload</button>
-</div>
+<div id="games" class="games"></div>
 
 <script>
-const iframe = document.getElementById("player");
-
-// 🔥 AUTO RELOAD TRY (every 5 sec kung ayaw mag load)
-setInterval(() => {
-  iframe.src = iframe.src;
-}, 5000);
-
-// 🔥 EXTRA FORCE RELOAD after 2 sec
-window.onload = () => {
-  setTimeout(() => {
-    iframe.src = iframe.src;
-  }, 2000);
+// TEAM LOGOS
+const teamMap = {
+  "Atlanta Hawks":"ATL","Boston Celtics":"BOS","Brooklyn Nets":"BKN",
+  "Charlotte Hornets":"CHA","Chicago Bulls":"CHI","Cleveland Cavaliers":"CLE",
+  "Dallas Mavericks":"DAL","Denver Nuggets":"DEN","Detroit Pistons":"DET",
+  "Golden State Warriors":"GSW","Houston Rockets":"HOU","Indiana Pacers":"IND",
+  "LA Clippers":"LAC","Los Angeles Lakers":"LAL","Memphis Grizzlies":"MEM",
+  "Miami Heat":"MIA","Milwaukee Bucks":"MIL","Minnesota Timberwolves":"MIN",
+  "New Orleans Pelicans":"NOP","New York Knicks":"NYK","Oklahoma City Thunder":"OKC",
+  "Orlando Magic":"ORL","Philadelphia 76ers":"PHI","Phoenix Suns":"PHX",
+  "Portland Trail Blazers":"POR","Sacramento Kings":"SAC","San Antonio Spurs":"SAS",
+  "Toronto Raptors":"TOR","Utah Jazz":"UTA","Washington Wizards":"WAS"
 };
 
-// manual reload button
-function reloadPlayer() {
-  iframe.src = iframe.src;
+// slug generator
+function slug(name){
+  return name.toLowerCase().replace(/[^a-z0-9 ]/g,"").replace(/\s+/g,"-");
 }
+
+// build stream link
+function buildURL(home, away){
+  return "https://streamfree.app/player/basketball/" +
+    slug(home) + "-vs-" + slug(away);
+}
+
+// logo
+function logo(team){
+  let abbr = teamMap[team];
+  return abbr ? `https://cdn.nba.com/logos/nba/${abbr}/global/L/logo.svg` : "";
+}
+
+// LOAD GAMES
+async function loadGames(){
+  let res = await fetch("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard");
+  let data = await res.json();
+
+  let html = "";
+
+  data.events.forEach((g,i)=>{
+    let teams = g.competitions[0].competitors;
+
+    let home = teams.find(t=>t.homeAway==="home").team.displayName;
+    let away = teams.find(t=>t.homeAway==="away").team.displayName;
+
+    let status = g.status.type.description;
+    let isLive = status === "In Progress";
+
+    html += `
+    <div class="card" onclick="play(this,'${home}','${away}')">
+      <div class="team">
+        <img class="logo" src="${logo(home)}">
+        ${home} vs ${away}
+      </div>
+      ${isLive ? '<div class="badge">LIVE</div>' : ''}
+    </div>`;
+  });
+
+  document.getElementById("games").innerHTML = html;
+
+  // auto select LIVE
+  let liveGame = data.events.find(g => g.status.type.description === "In Progress");
+  let target = liveGame || data.events[0];
+
+  let teams = target.competitions[0].competitors;
+
+  let home = teams.find(t=>t.homeAway==="home").team.displayName;
+  let away = teams.find(t=>t.homeAway==="away").team.displayName;
+
+  document.getElementById("player").src = buildURL(home, away);
+}
+
+// play game
+function play(el,home,away){
+  document.querySelectorAll(".card").forEach(c=>c.classList.remove("active"));
+  el.classList.add("active");
+
+  document.getElementById("player").src = buildURL(home,away);
+}
+
+// start
+loadGames();
+
+// auto refresh
+setInterval(loadGames, 300000);
 </script>
 
 </body>
