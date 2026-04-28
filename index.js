@@ -4,29 +4,23 @@ app.get("/stream", async (req, res) => {
 
     const response = await fetch(url, {
       headers: {
-        "Referer": "https://streamfree.app/embed/basketball/detroit-pistons-vs-orlando-magic"
+        "Referer": "https://streamfree.app/embed/basketball/detroit-pistons-vs-orlando-magic",
         "Origin": "https://streamfree.app",
         "User-Agent": "Mozilla/5.0",
         "Accept": "*/*"
       }
     });
 
-    // 🔥 IMPORTANT CHECK
-    if (!response.ok) {
-      return res.status(500).send("Bad response from source");
-    }
-
     const text = await response.text();
 
-    // 🔥 CHECK kung valid m3u8
     if (!text.includes("#EXTM3U")) {
-      return res.send("INVALID STREAM (expired or blocked)");
+      return res.send("INVALID STREAM");
     }
 
     res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
     res.send(text);
 
   } catch (err) {
-    res.status(500).send("ERROR FETCHING STREAM");
+    res.send("ERROR");
   }
 });
