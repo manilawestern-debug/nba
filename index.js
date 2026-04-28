@@ -3,35 +3,48 @@ import fetch from "node-fetch";
 
 const app = express();
 
-let viewers = 0;
+// 🔥 ilagay mo embed page mo dito
+const EMBED_URL = "https://streamfree.app/embed/basketball/detroit-pistons-vs-orlando-magic";
 
-// endpoint para sa player
-app.get("/watch", (req, res) => {
-  viewers++;
-  res.sendFile(new URL("./index.html", import.meta.url).pathname);
-});
-
-// endpoint para sa count
-app.get("/viewers", (req, res) => {
-  res.json({ viewers });
-});
-
-// proxy ng m3u8
-app.get("/stream", async (req, res) => {
-  const url = "PASTE_M3U8_LINK";
-
-  const response = await fetch(url, {
+async function getM3U8() {
+  const res = await fetch(EMBED_URL, {
     headers: {
-      "Referer": "https://streamfree.app/embed/basketball/",
-      "Origin": "https://streamfree.app",
       "User-Agent": "Mozilla/5.0"
     }
   });
 
-  const data = await response.text();
+  const html = await res.text();
 
-  res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
-  res.send(data);
+  // 🔥 hanapin .m3u8 sa page
+  const match = html.match(/https?:\/\/[^"]+\.m3u8[^"]*/);
+
+  if (match) {
+    return match[0];
+  }
+
+  throw new Error("No m3u8 found");
+}
+
+app.get("/stream", async (req, res) => {
+  try {
+    const m3u8 = await getM3U8();
+
+    const response = await fetch(m3u8, {
+      headers: {
+        "Referer": EMBED_URL,
+        "Origin": "https://streamfree.app",
+        "User-Agent": "Mozilla/5.0"
+      }
+    });
+
+    const data = await response.text();
+
+    res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
+    res.send(data);
+
+  } catch (err) {
+    res.status(500).send("Failed to fetch stream");
+  }
 });
 
-app.listen(3000);
+app.listen(3000, () => console.log("Running"));
