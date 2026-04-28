@@ -1,153 +1,104 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>NBA Live Premium</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-
-  <style>
-    body { margin:0; background:#0b0b0b; font-family:Arial; color:#fff; }
-
-    .header {
-      padding:14px;
-      background:#111;
-      display:flex;
-      justify-content:space-between;
-    }
-
-    .live { color:red; font-weight:bold; }
-
-    iframe {
-      width:100%;
-      height:45vh;
-      border:none;
-    }
-
-    .games { padding:10px; }
-
-    .card {
-      background:#111;
-      padding:12px;
-      border-radius:10px;
-      margin-bottom:10px;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      cursor:pointer;
-      border:1px solid transparent;
-    }
-
-    .card.active { border-color:red; }
-
-    .team { display:flex; align-items:center; gap:8px; }
-
-    .logo { width:26px; height:26px; }
-
-    .badge {
-      background:red;
-      padding:4px 8px;
-      border-radius:6px;
-      font-size:11px;
-    }
-  </style>
-</head>
-
-<body>
-
-<div class="header">
-  <div>NBA PREMIUM</div>
-  <div class="live">● LIVE</div>
-</div>
-
-<iframe id="player"></iframe>
-
-<div id="games" class="games"></div>
-
 <script>
-// TEAM LOGOS
-const teamMap = {
-  "Atlanta Hawks":"ATL","Boston Celtics":"BOS","Brooklyn Nets":"BKN",
-  "Charlotte Hornets":"CHA","Chicago Bulls":"CHI","Cleveland Cavaliers":"CLE",
-  "Dallas Mavericks":"DAL","Denver Nuggets":"DEN","Detroit Pistons":"DET",
-  "Golden State Warriors":"GSW","Houston Rockets":"HOU","Indiana Pacers":"IND",
-  "LA Clippers":"LAC","Los Angeles Lakers":"LAL","Memphis Grizzlies":"MEM",
-  "Miami Heat":"MIA","Milwaukee Bucks":"MIL","Minnesota Timberwolves":"MIN",
-  "New Orleans Pelicans":"NOP","New York Knicks":"NYK","Oklahoma City Thunder":"OKC",
-  "Orlando Magic":"ORL","Philadelphia 76ers":"PHI","Phoenix Suns":"PHX",
-  "Portland Trail Blazers":"POR","Sacramento Kings":"SAC","San Antonio Spurs":"SAS",
-  "Toronto Raptors":"TOR","Utah Jazz":"UTA","Washington Wizards":"WAS"
-};
-
-// slug generator
 function slug(name){
   return name.toLowerCase().replace(/[^a-z0-9 ]/g,"").replace(/\s+/g,"-");
 }
 
-// build stream link
-function buildURL(home, away){
-  return "https://streamfree.app/player/basketball/" +
-    slug(home) + "-vs-" + slug(away);
+function buildSources(home, away){
+  const s = `${slug(home)}-vs-${slug(away)}`;
+  return [
+    `https://streamfree.app/player/basketball/${s}`,
+    `https://streamfree.app/embed/basketball/${s}`
+  ];
 }
 
-// logo
-function logo(team){
-  let abbr = teamMap[team];
-  return abbr ? `https://cdn.nba.com/logos/nba/${abbr}/global/L/logo.svg` : "";
+// 🔥 try only LIVE games
+async function tryLiveGames(events){
+  let liveGames = events.filter(g =>
+    g.status.type.description === "In Progress"
+  );
+
+  if (liveGames.length === 0){
+    document.getElementById("player").src = "";
+    return;
+  }
+
+  playGameList(liveGames, 0);
 }
 
-// LOAD GAMES
+// 🔁 try per game
+function playGameList(list, index){
+  if (index >= list.length) return;
+
+  let g = list[index];
+  let teams = g.competitions[0].competitors;
+
+  let home = teams.find(t=>t.homeAway==="home").team.displayName;
+  let away = teams.find(t=>t.homeAway==="away").team.displayName;
+
+  let sources = buildSources(home, away);
+
+  trySources(sources, 0, () => {
+    // pag fail → next game
+    playGameList(list, index + 1);
+  });
+}
+
+// 🔁 try per source
+function trySources(sources, index, onFail){
+  if (index >= sources.length){
+    onFail();
+    return;
+  }
+
+  let player = document.getElementById("player");
+  player.src = sources[index];
+
+  setTimeout(() => {
+    // simple fallback check
+    if (player.src.includes("streamfree")){
+      trySources(sources, index + 1, onFail);
+    }
+  }, 4000);
+}
+
+// 🎯 LOAD NBA
 async function loadGames(){
   let res = await fetch("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard");
   let data = await res.json();
 
+  render(data.events);
+  tryLiveGames(data.events);
+}
+
+// 🎨 UI
+function render(events){
   let html = "";
 
-  data.events.forEach((g,i)=>{
+  events.forEach(g=>{
     let teams = g.competitions[0].competitors;
 
     let home = teams.find(t=>t.homeAway==="home").team.displayName;
     let away = teams.find(t=>t.homeAway==="away").team.displayName;
 
-    let status = g.status.type.description;
-    let isLive = status === "In Progress";
+    let live = g.status.type.description === "In Progress";
 
     html += `
-    <div class="card" onclick="play(this,'${home}','${away}')">
-      <div class="team">
-        <img class="logo" src="${logo(home)}">
-        ${home} vs ${away}
-      </div>
-      ${isLive ? '<div class="badge">LIVE</div>' : ''}
+    <div class="card" onclick="manualPlay('${home}','${away}')">
+      ${home} vs ${away}
+      ${live ? '<span style="color:red">LIVE</span>' : ''}
     </div>`;
   });
 
   document.getElementById("games").innerHTML = html;
-
-  // auto select LIVE
-  let liveGame = data.events.find(g => g.status.type.description === "In Progress");
-  let target = liveGame || data.events[0];
-
-  let teams = target.competitions[0].competitors;
-
-  let home = teams.find(t=>t.homeAway==="home").team.displayName;
-  let away = teams.find(t=>t.homeAway==="away").team.displayName;
-
-  document.getElementById("player").src = buildURL(home, away);
 }
 
-// play game
-function play(el,home,away){
-  document.querySelectorAll(".card").forEach(c=>c.classList.remove("active"));
-  el.classList.add("active");
-
-  document.getElementById("player").src = buildURL(home,away);
+// manual click
+function manualPlay(home,away){
+  let sources = buildSources(home,away);
+  trySources(sources, 0, ()=>{});
 }
 
 // start
 loadGames();
-
-// auto refresh
 setInterval(loadGames, 300000);
 </script>
-
-</body>
-</html>
