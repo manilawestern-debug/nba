@@ -1,43 +1,49 @@
 import express from "express";
-import fetch from "node-fetch";
+import puppeteer from "puppeteer";
 
 const app = express();
 
-// homepage (optional)
+const EMBED_URL = "https://streamfree.app/embed/basketball/detroit-pistons-vs-orlando-magic";
+
+async function getM3U8() {
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"]
+  });
+
+  const page = await browser.newPage();
+
+  let m3u8 = null;
+
+  page.on("request", req => {
+    const url = req.url();
+    if (url.includes(".m3u8")) {
+      m3u8 = url;
+    }
+  });
+
+  await page.goto(EMBED_URL, { waitUntil: "networkidle2" });
+
+  await new Promise(r => setTimeout(r, 5000));
+
+  await browser.close();
+
+  if (!m3u8) throw new Error("No m3u8 found");
+
+  return m3u8;
+}
+
 app.get("/", (req, res) => {
-  res.send("Server running");
+  res.send("AUTO SYSTEM RUNNING");
 });
 
-// stream endpoint
 app.get("/stream", async (req, res) => {
   try {
-    const url = "
-https://streamfree.app/live/detroit-pistons-vs-orlando-magic1080p/index.m3u8?_t=HiOZiFb6COU2a4gX26pTjQ&_e=1777371201&_n=70c1b0084c0f6b02";
-
-    const response = await fetch(url, {
-      headers: {
-        "Referer": "https://streamfree.app/embed/basketball/detroit-pistons-vs-orlando-magic",
-        "Origin": "https://streamfree.app",
-        "User-Agent": "Mozilla/5.0",
-        "Accept": "*/*"
-      }
-    });
-
-    const text = await response.text();
-
-    if (!text.includes("#EXTM3U")) {
-      return res.send("INVALID STREAM");
-    }
-
-    res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
-    res.send(text);
-
+    const link = await getM3U8();
+    res.send(link);
   } catch (err) {
-    res.send("ERROR");
+    res.send("FAILED TO GET STREAM");
   }
 });
 
-// start server
-app.listen(3000, () => {
-  console.log("Server running");
-});
+app.listen(3000, () => console.log("Server running"));
