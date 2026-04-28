@@ -15,15 +15,19 @@ async function getM3U8() {
 
   let m3u8 = null;
 
-  page.on("request", req => {
-    const url = req.url();
-    if (url.includes(".m3u8") && !url.includes("session-ping")) {
-  m3u8 = url;
+  // 🔥 FIXED (response instead of request)
+  page.on("response", async (res) => {
+    const url = res.url();
+
+    if (url.includes("index.m3u8") && !url.includes("session-ping")) {
+      m3u8 = url;
     }
+  });
 
   await page.goto(EMBED_URL, { waitUntil: "networkidle2" });
 
-  await new Promise(r => setTimeout(r, 5000));
+  // hintayin mag-load stream
+  await new Promise(r => setTimeout(r, 6000));
 
   await browser.close();
 
@@ -32,10 +36,12 @@ async function getM3U8() {
   return m3u8;
 }
 
+// homepage
 app.get("/", (req, res) => {
   res.send("AUTO SYSTEM RUNNING");
 });
 
+// stream endpoint
 app.get("/stream", async (req, res) => {
   try {
     const link = await getM3U8();
