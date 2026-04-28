@@ -17,10 +17,9 @@ async function getM3U8() {
 
   page.on("request", req => {
     const url = req.url();
-    if (url.includes(".m3u8")) {
-      m3u8 = url;
+    if (url.includes(".m3u8") && !url.includes("session-ping")) {
+  m3u8 = url;
     }
-  });
 
   await page.goto(EMBED_URL, { waitUntil: "networkidle2" });
 
