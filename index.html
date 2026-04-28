@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Live Stream</title>
+</head>
+<body style="background:black; color:white; text-align:center;">
+
+<h2>🔴 LIVE</h2>
+<h3 id="count">👀 Viewers: 0</h3>
+
+<video id="video" controls width="80%"></video>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script>
+const video = document.getElementById('video');
+const hls = new Hls();
+
+hls.loadSource('/stream');
+hls.attachMedia(video);
+
+// viewer count update
+async function updateViewers() {
+  const res = await fetch('/viewers');
+  const data = await res.json();
+  document.getElementById('count').innerText = "👀 Viewers: " + data.viewers;
+}
+
+setInterval(updateViewers, 2000);
+updateViewers();
+</script>
+
+</body>
+</html>
