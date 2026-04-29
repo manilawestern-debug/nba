@@ -2,125 +2,117 @@ import express from "express";
 
 const app = express();
 
-// 🔥 function para kunin teams from URL
-function extractGame(url){
-  if(!url) return "No Game";
-
-  try {
-    let part = url.split("/basketball/")[1];
-    if(!part) return "Unknown Game";
-
-    part = part.split("?")[0];
-
-    let [team1, team2] = part.split("-vs-");
-
-    team1 = team1.replaceAll("-", " ");
-    team2 = team2.replaceAll("-", " ");
-
-    // capitalize
-    team1 = team1.replace(/\b\w/g, c => c.toUpperCase());
-    team2 = team2.replace(/\b\w/g, c => c.toUpperCase());
-
-    return team1 + " vs " + team2;
-
-  } catch {
-    return "Live NBA Game";
-  }
-}
-
 app.get("/", (req, res) => {
-  const stream = process.env.STREAM_URL || "";
-  const gameTitle = extractGame(stream);
+  const m3u8 = process.env.M3U8_URL || "";
 
   res.send(`
-  <!DOCTYPE html>
-  <html>
-  <head>
-    <title>${gameTitle}</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESPN LIVE</title>
 
-    <style>
-      body {
-        margin:0;
-        background:#0b0b0b;
-        font-family:Arial;
-        color:white;
-      }
+<style>
+body {
+  margin:0;
+  background:black;
+  font-family:Arial;
+  overflow:hidden;
+}
 
-      .header {
-        padding:15px;
-        font-size:18px;
-        background:#111;
-        display:flex;
-        justify-content:space-between;
-      }
+/* VIDEO */
+video {
+  position:fixed;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
 
-      .live {
-        color:red;
-      }
+/* GLASS HEADER */
+.header {
+  position:absolute;
+  top:0;
+  width:100%;
+  padding:15px;
+  display:flex;
+  justify-content:space-between;
+  backdrop-filter: blur(12px);
+  background:rgba(0,0,0,0.3);
+}
 
-      .container {
-        padding:15px;
-      }
+.logo {
+  color:red;
+  font-weight:bold;
+}
 
-      iframe {
-        width:100%;
-        height:50vh;
-        border:none;
-        border-radius:10px;
-      }
+.live {
+  color:red;
+  animation: blink 1s infinite;
+}
 
-      .title {
-        font-size:20px;
-        font-weight:bold;
-        margin-top:10px;
-      }
+@keyframes blink {
+  50% {opacity:0.4;}
+}
 
-      .desc {
-        color:#aaa;
-        margin-top:5px;
-      }
+/* GLASS OVERLAY */
+.overlay {
+  position:absolute;
+  bottom:40px;
+  left:20px;
+  backdrop-filter: blur(15px);
+  background:rgba(0,0,0,0.4);
+  padding:20px;
+  border-radius:15px;
+}
 
-      .btn {
-        margin-top:15px;
-        width:100%;
-        padding:10px;
-        background:#222;
-        border:none;
-        color:white;
-        border-radius:8px;
-      }
-    </style>
-  </head>
+.title {
+  font-size:28px;
+  font-weight:bold;
+}
 
-  <body>
+.desc {
+  color:#ccc;
+  margin-top:5px;
+}
+</style>
+</head>
 
-  <div class="header">
-    NBA PREMIUM
-    <span class="live">● LIVE</span>
-  </div>
+<body>
 
-  <div class="container">
+<div class="header">
+  <div class="logo">ESPN PREMIUM</div>
+  <div class="live">● LIVE</div>
+</div>
 
-    <iframe src="${stream}" allowfullscreen></iframe>
+<video id="video" autoplay muted controls></video>
 
-    <div class="title">${gameTitle}</div>
-    <div class="desc">Auto detected from stream link</div>
+<div class="overlay">
+  <div class="title">ESPN LIVE</div>
+  <div class="desc">No click • Smooth stream • Glass UI</div>
+</div>
 
-    <button class="btn" onclick="reload()">Reload</button>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
-  </div>
+<script>
+const video = document.getElementById("video");
 
-  <script>
-    function reload(){
-      let f = document.querySelector("iframe");
-      f.src = f.src;
-    }
-  </script>
+if (Hls.isSupported()) {
+  const hls = new Hls();
+  hls.loadSource("${m3u8}");
+  hls.attachMedia(video);
 
-  </body>
-  </html>
+  hls.on(Hls.Events.ERROR, function(){
+    console.log("Stream failed");
+  });
+
+} else {
+  video.src = "${m3u8}";
+}
+</script>
+
+</body>
+</html>
   `);
 });
 
-app.listen(3000, () => console.log("Running"));
+app.listen(3000);
